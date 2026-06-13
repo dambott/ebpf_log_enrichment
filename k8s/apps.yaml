@@ -1,0 +1,299 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logdemo-go
+  namespace: ebpflogs
+  labels:
+    app: logdemo-go
+    demo: log-enrichment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logdemo-go
+  template:
+    metadata:
+      labels:
+        app: logdemo-go
+        demo: log-enrichment
+    spec:
+      containers:
+        - name: logdemo-go
+          image: __IMAGE_GO__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+        - name: traffic
+          image: curlimages/curl:8.5.0
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              sleep 45
+              while true; do
+                MIN=$(date +%M)
+                if [ $((MIN % 2)) -eq 0 ]; then
+                  EXTRA=""
+                  echo "unprimed traffic (minute ${MIN})"
+                else
+                  EXTRA='-H traceparent: 00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01'
+                  echo "primed traffic (minute ${MIN})"
+                fi
+                for target in logdemo-go:8080 logdemo-java:8081 logdemo-python:8082 logdemo-node:8083 logdemo-ruby:8084; do
+                  name=${target%%:*}
+                  port=${target##*:}
+                  url="http://${name}.ebpflogs.svc.cluster.local:${port}/work"
+                  curl -sf -H 'Connection: close' ${EXTRA} "${url}" && echo "  ok ${name}" || echo "  FAIL ${name}"
+                done
+                sleep 60
+              done
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logdemo-go
+  namespace: ebpflogs
+spec:
+  selector:
+    app: logdemo-go
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logdemo-java
+  namespace: ebpflogs
+  labels:
+    app: logdemo-java
+    demo: log-enrichment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logdemo-java
+  template:
+    metadata:
+      labels:
+        app: logdemo-java
+        demo: log-enrichment
+    spec:
+      containers:
+        - name: logdemo-java
+          image: __IMAGE_JAVA__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logdemo-java
+  namespace: ebpflogs
+spec:
+  selector:
+    app: logdemo-java
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logdemo-python
+  namespace: ebpflogs
+  labels:
+    app: logdemo-python
+    demo: log-enrichment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logdemo-python
+  template:
+    metadata:
+      labels:
+        app: logdemo-python
+        demo: log-enrichment
+    spec:
+      containers:
+        - name: logdemo-python
+          image: __IMAGE_PYTHON__
+          imagePullPolicy: Always
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8082
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logdemo-python
+  namespace: ebpflogs
+spec:
+  selector:
+    app: logdemo-python
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logdemo-node
+  namespace: ebpflogs
+  labels:
+    app: logdemo-node
+    demo: log-enrichment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logdemo-node
+  template:
+    metadata:
+      labels:
+        app: logdemo-node
+        demo: log-enrichment
+    spec:
+      containers:
+        - name: logdemo-node
+          image: __IMAGE_NODE__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8083
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logdemo-node
+  namespace: ebpflogs
+spec:
+  selector:
+    app: logdemo-node
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logdemo-ruby
+  namespace: ebpflogs
+  labels:
+    app: logdemo-ruby
+    demo: log-enrichment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logdemo-ruby
+  template:
+    metadata:
+      labels:
+        app: logdemo-ruby
+        demo: log-enrichment
+    spec:
+      containers:
+        - name: logdemo-ruby
+          image: __IMAGE_RUBY__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8084
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logdemo-ruby
+  namespace: ebpflogs
+spec:
+  selector:
+    app: logdemo-ruby
+  ports:
+    - name: http
+      port: 8084
+      targetPort: http

@@ -1,0 +1,38 @@
+# Minimal EKS cluster for OBI trace-log correlation demo.
+# Requires Amazon Linux 2023 with kernel 6.12+ (use latest eksctl/AL2023 AMI).
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ebpflogs
+  region: us-west-2
+  version: "1.33"
+
+vpc:
+  id: vpc-077b7582dc73f76bc
+  subnets:
+    public:
+      us-west-2a: { id: subnet-02cae8d7cba17e578 }
+      us-west-2b: { id: subnet-0b21fa331556b919f }
+      us-west-2c: { id: subnet-09fd255f2a77fd841 }
+  nat:
+    gateway: Disable
+
+managedNodeGroups:
+  - name: workers
+    instanceType: t3.medium
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    amiFamily: AmazonLinux2023
+    volumeSize: 30
+    privateNetworking: false
+    labels:
+      role: worker
+    tags:
+      project: ebpflogs
+    # OBI requires bpffs at /sys/fs/bpf for pinned BPF maps.
+    preBootstrapCommands:
+      - mkdir -p /sys/fs/bpf
+      - mountpoint -q /sys/fs/bpf || mount -t bpf bpffs /sys/fs/bpf
+      - grep -q '/sys/fs/bpf' /etc/fstab || echo 'bpffs /sys/fs/bpf bpf defaults 0 0' >> /etc/fstab

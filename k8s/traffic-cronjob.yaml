@@ -1,0 +1,56 @@
+# Optional: standalone CronJob traffic (use if cluster has spare pod capacity).
+# Default harness is the traffic sidecar on logdemo-go in k8s/apps.yaml.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: logdemo-traffic
+  namespace: ebpflogs
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: logdemo-traffic
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: curl
+              image: curlimages/curl:8.5.0
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 8Mi
+                limits:
+                  cpu: 50m
+                  memory: 32Mi
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  MIN=$(date +%M)
+                  PRIMED='-H traceparent: 00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01'
+                  if [ $((MIN % 2)) -eq 0 ]; then
+                    EXTRA=""
+                    echo "unprimed traffic (minute ${MIN})"
+                  else
+                    EXTRA="${PRIMED}"
+                    echo "primed traffic (minute ${MIN})"
+                  fi
+                  for target in \
+                    logdemo-go:8080 \
+                    logdemo-java:8081 \
+                    logdemo-python:8082 \
+                    logdemo-node:8083 \
+                    logdemo-ruby:8084; do
+                    name=${target%%:*}
+                    port=${target##*:}
+                    url="http://${name}.ebpflogs.svc.cluster.local:${port}/work"
+                    echo "GET ${url}"
+                    curl -sf -H 'Connection: close' ${EXTRA} "${url}" || echo "FAILED ${name}"
+                  done

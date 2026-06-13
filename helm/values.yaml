@@ -1,0 +1,98 @@
+# Coralogix + OBI log enricher demo (Go, Java, Python, Node.js, Ruby).
+
+global:
+  domain: "us2.coralogix.com"
+  clusterName: "ebpflogs"
+  defaultApplicationName: "ebpf-log-enrichment-test"
+  defaultSubsystemName: "logdemo"
+  logLevel: "info"
+  collectionInterval: "30s"
+
+opentelemetry-agent:
+  enabled: true
+  presets:
+    coralogixExporter:
+      enabled: true
+    logsCollection:
+      enabled: true
+    kubernetesAttributes:
+      enabled: true
+
+opentelemetry-cluster-collector:
+  enabled: false
+
+opentelemetry-ebpf-instrumentation:
+  enabled: true
+  k8sCache:
+    replicas: 1
+  env:
+    OTEL_EBPF_BPF_FS_PATH: /sys/fs/bpf
+  initContainers:
+    - name: mount-bpf-fs
+      image: alpine:3.23
+      command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache util-linux >/dev/null
+          nsenter -t 1 -m -- sh -c '
+            mkdir -p /sys/fs/bpf
+            if ! mountpoint -q /sys/fs/bpf; then
+              mount -t bpf bpffs /sys/fs/bpf
+            fi
+          '
+      securityContext:
+        privileged: true
+  volumes:
+    - name: bpffs
+      hostPath:
+        path: /sys/fs/bpf
+        type: DirectoryOrCreate
+    - name: host-proc
+      hostPath:
+        path: /proc
+        type: Directory
+    - name: securityfs
+      hostPath:
+        path: /sys/kernel/security
+        type: DirectoryOrCreate
+  volumeMounts:
+    - name: bpffs
+      mountPath: /sys/fs/bpf
+      mountPropagation: Bidirectional
+    - name: host-proc
+      mountPath: /proc
+      readOnly: true
+    - name: securityfs
+      mountPath: /sys/kernel/security
+      readOnly: true
+  config:
+    data:
+      discovery:
+        instrument:
+          - k8s_namespace: ebpflogs
+            k8s_pod_labels:
+              demo: log-enrichment
+        exclude_instrument:
+          - exe_path: ".*ebpf-instrument.*|.*otelcol.*"
+      ebpf:
+        log_enricher:
+          services:
+            - service:
+                - k8s_namespace: ebpflogs
+                  k8s_pod_labels:
+                    demo: log-enrichment
+        track_request_headers: true
+        context_propagation: all
+      attributes:
+        kubernetes:
+          enable: true
+
+opentelemetry-ebpf-profiler:
+  enabled: false
+
+coralogix-ebpf-profiler:
+  enabled: false
+
+coralogix-operator:
+  enabled: false

@@ -1,0 +1,10 @@
+.env
+.env.*
+*.local
+.DS_Store
+logdemo-go/app
+logdemo-java/target/
+*.zip
+*.pem
+*credentials*
+*secret*
