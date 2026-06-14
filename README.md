@@ -27,7 +27,7 @@ All apps expose `/health`, `/smoke`, and `/work`. The `/work` handler sleeps ~50
 ## Quick start
 
 ```bash
-# One-time cluster setup (EKS 1.33+, kernel 6.12+)
+# One-time cluster setup (EKS 1.35+, kernel 6.12+)
 make eks-up
 
 # Deploy everything (requires CORALOGIX_PRIVATE_KEY)
