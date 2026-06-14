@@ -52,7 +52,7 @@ spec:
                   EXTRA='-H traceparent: 00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01'
                   echo "primed traffic (minute ${MIN})"
                 fi
-                for target in logdemo-go:8080 logdemo-java:8081 logdemo-python:8082 logdemo-node:8083 logdemo-ruby:8084; do
+                for target in logdemo-go:8080 logdemo-java:8081 logdemo-python:8082 logdemo-node:8083 logdemo-ruby:8084 logdemo-dotnet:8085; do
                   name=${target%%:*}
                   port=${target##*:}
                   url="http://${name}.ebpflogs.svc.cluster.local:${port}/work"
@@ -296,4 +296,57 @@ spec:
   ports:
     - name: http
       port: 8084
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logdemo-dotnet
+  namespace: ebpflogs
+  labels:
+    app: logdemo-dotnet
+    demo: log-enrichment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logdemo-dotnet
+  template:
+    metadata:
+      labels:
+        app: logdemo-dotnet
+        demo: log-enrichment
+    spec:
+      containers:
+        - name: logdemo-dotnet
+          image: __IMAGE_DOTNET__
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8085
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logdemo-dotnet
+  namespace: ebpflogs
+spec:
+  selector:
+    app: logdemo-dotnet
+  ports:
+    - name: http
+      port: 8085
       targetPort: http

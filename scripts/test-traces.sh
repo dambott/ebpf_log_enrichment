@@ -2,8 +2,8 @@
 set -euo pipefail
 
 NAMESPACE="${NAMESPACE:-ebpflogs}"
-APPS=(logdemo-go logdemo-java logdemo-python logdemo-node logdemo-ruby)
-PORTS=(8080 8081 8082 8083 8084)
+APPS=(logdemo-go logdemo-java logdemo-python logdemo-node logdemo-ruby logdemo-dotnet)
+PORTS=(8080 8081 8082 8083 8084 8085)
 
 test_app() {
   local deploy="$1"
@@ -51,6 +51,7 @@ if [[ -n "${APP:-}" ]]; then
     logdemo-python) test_app logdemo-python 8082 ;;
     logdemo-node) test_app logdemo-node 8083 ;;
     logdemo-ruby) test_app logdemo-ruby 8084 ;;
+    logdemo-dotnet) test_app logdemo-dotnet 8085 ;;
     *) echo "Unknown APP=${APP}"; exit 1 ;;
   esac
   exit 0

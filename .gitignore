@@ -4,6 +4,8 @@
 .DS_Store
 logdemo-go/app
 logdemo-java/target/
+logdemo-dotnet/bin/
+logdemo-dotnet/obj/
 *.zip
 *.pem
 *credentials*

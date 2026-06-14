@@ -1,4 +1,4 @@
-# Coralogix + OBI log enricher demo (Go, Java, Python, Node.js, Ruby).
+# Coralogix + OBI log enricher demo (Go, Java, Python, Node.js, Ruby, .NET).
 
 global:
   domain: "us2.coralogix.com"

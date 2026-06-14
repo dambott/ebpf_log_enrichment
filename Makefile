@@ -13,6 +13,9 @@ eks-up:
 deploy-eks:
 	@CLUSTER_NAME=$(CLUSTER_NAME) AWS_REGION=$(AWS_REGION) CORALOGIX_PRIVATE_KEY=$(CORALOGIX_PRIVATE_KEY) ./scripts/deploy-eks.sh
 
+deploy-dotnet:
+	@CLUSTER_NAME=$(CLUSTER_NAME) AWS_REGION=$(AWS_REGION) CORALOGIX_PRIVATE_KEY=$(CORALOGIX_PRIVATE_KEY) APPS=dotnet ./scripts/deploy-eks.sh
+
 test:
 	@./scripts/test-traces.sh
 
@@ -21,6 +24,9 @@ test-go:
 
 test-java:
 	@APP=logdemo-java ./scripts/test-traces.sh
+
+test-dotnet:
+	@APP=logdemo-dotnet ./scripts/test-traces.sh
 
 traffic:
 	@kubectl -n ebpflogs logs -l app=logdemo-go -c traffic -f
