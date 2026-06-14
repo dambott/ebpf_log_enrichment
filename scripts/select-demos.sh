@@ -5,30 +5,72 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/languages.sh
 source "${ROOT}/scripts/languages.sh"
 
+INVOCATION="${SELECT_DEMOS_NAME:-select-demos.sh}"
+
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [command] [languages]
+Usage: ${INVOCATION} [command] [languages]
 
-Pick which logdemo languages are active on the cluster (scale deployments + traffic).
+Choose which logdemo languages are active on EKS. Disabled apps scale to
+replicas=0 (saves pod IPs); the traffic sidecar on logdemo-go curls only
+enabled targets from the demo-traffic-targets ConfigMap.
 
 Commands:
   (none)              Interactive multi-select menu (default)
-  apply [langs]       Enable only listed keys (comma-separated), or use saved file
-  status              Show saved selection and live cluster state
-  deploy [langs]      apply + deploy/build only selected languages (needs CORALOGIX_PRIVATE_KEY)
-  test [langs]        Run trace enrichment tests for selected languages only
-  list                Print enabled keys as comma-separated (for APPS=)
+  apply [langs]       Enable only listed keys (comma-separated), or saved file
+  status              Show saved selection and live cluster replica counts
+  deploy [langs]      apply + build/deploy selected langs (CORALOGIX_PRIVATE_KEY)
+  test [langs]        Run trace enrichment tests for selected languages
+  list                Print enabled keys as comma-separated (for APPS=...)
+  help                Show this message
 
-Language keys: $(demo_keys_to_csv "${DEMO_LANG_KEYS[@]}")
+Language keys:
+  $(demo_keys_to_csv "${DEMO_LANG_KEYS[@]}")
 
-Examples:
-  $(basename "$0")                          # interactive picker
-  $(basename "$0") apply go,java,rust       # enable three demos
-  $(basename "$0") apply                    # apply saved .demo-selection
-  $(basename "$0") deploy rust,php          # enable + build/deploy those only
-  $(basename "$0") test                     # test saved selection
+Quick start:
+  ${INVOCATION}                       # pick languages interactively
+  ${INVOCATION} apply go,java,rust    # enable three demos on the cluster
+  ${INVOCATION} status                # see what's enabled vs running
+  ${INVOCATION} test                  # test saved selection for trace_id
+  make select-demos                   # same as interactive (via Makefile)
 
-Selection is saved to: ${DEMO_SELECTION_FILE}
+Common workflows:
+  # Demo only JVM stacks on a small cluster
+  ${INVOCATION} apply go,java,kotlin,scala,dotnet
+
+  # Build and deploy just what you changed
+  ${INVOCATION} deploy rust,php
+
+  # Re-apply last saved .demo-selection after a full deploy
+  ${INVOCATION} apply
+
+  # Test everything (ignore .demo-selection)
+  TEST_ALL=1 ./scripts/test-traces.sh
+
+Interactive menu keys:
+  1-13   toggle a language    a=all    c=clear    d=done
+  p1     original 5 (go,java,python,node,ruby)
+  p2     original 5 + dotnet
+  p3     JVM (go,java,kotlin,scala,dotnet)
+  p4     scripting (go,python,node,ruby,php,perl,crystal)
+  p5     systems (go,rust,cpp)
+  ?      show this help inside the menu
+
+Selection file: ${DEMO_SELECTION_FILE}
+More docs:      ${ROOT}/README.md#selecting-which-demos-to-run
+EOF
+}
+
+show_banner() {
+  cat <<EOF
+
+${INVOCATION} — enable only the language demos you need
+
+  ./${INVOCATION} apply go,rust,php   enable specific languages (non-interactive)
+  ./${INVOCATION} status              show saved selection + cluster state
+  ./${INVOCATION} test                verify trace_id enrichment (uses .demo-selection)
+  ./${INVOCATION} --help              full command reference
+
 EOF
 }
 
@@ -103,13 +145,18 @@ interactive_select() {
       printf " %2d) %s %-8s  %s  (:%s)\n" "$((i + 1))" "${mark}" "${DEMO_LANG_KEYS[$i]}" "${DEMO_LANG_LABELS[$i]}" "${DEMO_LANG_PORTS[$i]}"
     done
     echo
-    echo "Toggle a number ·  a=all ·  c=clear ·  d=done"
-    echo "Presets:  p1=original 5 ·  p2=+dotnet ·  p3=JVM ·  p4=scripting ·  p5=systems"
+    echo "Toggle 1-13 · a=all · c=clear · d=done · ?=help"
+    echo "Presets: p1=original 5 · p2=+dotnet · p3=JVM · p4=scripting · p5=systems"
     echo -n "> "
     read -r choice
 
     case "${choice}" in
       d|D|"") break ;;
+      '?'|h|H|help)
+        show_banner
+        usage | sed -n '/Interactive menu keys:/,\$p'
+        continue
+        ;;
       a|A)
         for i in "${!toggled[@]}"; do toggled[$i]=1; done
         ;;
@@ -302,7 +349,7 @@ main() {
       if [[ "${confirm}" != [nN]* ]]; then
         cmd_apply "$(demo_keys_to_csv "${DEMO_ENABLED_KEYS[@]}")"
       else
-        echo "Saved selection only (run: $(basename "$0") apply)"
+        echo "Saved selection only (run: ${INVOCATION} apply)"
       fi
       ;;
     *)
@@ -310,11 +357,16 @@ main() {
         cmd_apply "${cmd}"
       else
         echo "Unknown command: ${cmd}" >&2
-        usage
+        echo "Run: ${INVOCATION} --help" >&2
         exit 1
       fi
       ;;
   esac
 }
 
-main "$@"
+# Default: interactive menu (no subcommand).
+if [[ $# -eq 0 ]]; then
+  show_banner
+fi
+
+main "${1:-interactive}" "${@:2}"
