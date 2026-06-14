@@ -23,7 +23,7 @@ managedNodeGroups:
     instanceType: t3.medium
     desiredCapacity: 1
     minSize: 1
-    maxSize: 1
+    maxSize: 2
     amiFamily: AmazonLinux2023
     volumeSize: 30
     privateNetworking: false

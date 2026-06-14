@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/languages.sh
+source "${ROOT}/scripts/languages.sh"
+
 NAMESPACE="${NAMESPACE:-ebpflogs}"
-APPS=(logdemo-go logdemo-java logdemo-python logdemo-node logdemo-ruby logdemo-dotnet)
-PORTS=(8080 8081 8082 8083 8084 8085)
 
 test_app() {
   local deploy="$1"
@@ -14,9 +16,20 @@ test_app() {
   echo "Testing ${deploy} (port ${port})"
   echo "========================================"
 
+  if ! kubectl -n "$NAMESPACE" get deploy "${deploy}" >/dev/null 2>&1; then
+    echo "SKIP: deployment/${deploy} not found"
+    echo
+    return 0
+  fi
+
   pod=$(kubectl -n "$NAMESPACE" get pod -l "app=${deploy}" \
     --field-selector=status.phase=Running \
-    -o jsonpath='{.items[0].metadata.name}')
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [[ -z "${pod}" ]]; then
+    echo "SKIP: no running pod for ${deploy}"
+    echo
+    return 0
+  fi
   kubectl -n "$NAMESPACE" wait --for=condition=ready "pod/$pod" --timeout=180s
 
   echo "--- UNPRIMED ---"
@@ -45,18 +58,27 @@ test_app() {
 }
 
 if [[ -n "${APP:-}" ]]; then
-  case "${APP}" in
-    logdemo-go) test_app logdemo-go 8080 ;;
-    logdemo-java) test_app logdemo-java 8081 ;;
-    logdemo-python) test_app logdemo-python 8082 ;;
-    logdemo-node) test_app logdemo-node 8083 ;;
-    logdemo-ruby) test_app logdemo-ruby 8084 ;;
-    logdemo-dotnet) test_app logdemo-dotnet 8085 ;;
-    *) echo "Unknown APP=${APP}"; exit 1 ;;
-  esac
+  key="${APP#logdemo-}"
+  if idx="$(demo_index_for_key "${key}")"; then
+    test_app "$(demo_deploy_name "${key}")" "$(demo_port_at "${idx}")"
+    exit 0
+  fi
+  echo "Unknown APP=${APP}"
+  exit 1
+fi
+
+if [[ -f "${DEMO_SELECTION_FILE}" ]] && [[ "${TEST_ALL:-}" != 1 ]]; then
+  demo_load_enabled_keys
+  echo "Testing saved selection: $(demo_keys_to_csv "${DEMO_ENABLED_KEYS[@]}")"
+  echo "(set TEST_ALL=1 to test every deployed language)"
+  echo
+  for key in "${DEMO_ENABLED_KEYS[@]}"; do
+    idx="$(demo_index_for_key "${key}")"
+    test_app "$(demo_deploy_name "${key}")" "$(demo_port_at "${idx}")"
+  done
   exit 0
 fi
 
-for i in "${!APPS[@]}"; do
-  test_app "${APPS[$i]}" "${PORTS[$i]}"
+for i in "${!DEMO_LANG_KEYS[@]}"; do
+  test_app "$(demo_deploy_name "${DEMO_LANG_KEYS[$i]}")" "$(demo_port_at "${i}")"
 done

@@ -48,7 +48,14 @@ spec:
                     logdemo-python:8082 \
                     logdemo-node:8083 \
                     logdemo-ruby:8084 \
-                    logdemo-dotnet:8085; do
+                    logdemo-dotnet:8085 \
+                    logdemo-rust:8086 \
+                    logdemo-php:8087 \
+                    logdemo-perl:8088 \
+                    logdemo-cpp:8089 \
+                    logdemo-kotlin:8090 \
+                    logdemo-scala:8091 \
+                    logdemo-crystal:8092; do
                     name=${target%%:*}
                     port=${target##*:}
                     url="http://${name}.ebpflogs.svc.cluster.local:${port}/work"

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-traffic-targets
+  namespace: ebpflogs
+data:
+  # Updated by scripts/demo-select.sh apply. One target per line: name:port
+  targets: |
+    logdemo-go:8080
+    logdemo-java:8081
+    logdemo-python:8082
+    logdemo-node:8083
+    logdemo-ruby:8084
+    logdemo-dotnet:8085
+    logdemo-rust:8086
+    logdemo-php:8087
+    logdemo-perl:8088
+    logdemo-cpp:8089
+    logdemo-kotlin:8090
+    logdemo-scala:8091
+    logdemo-crystal:8092

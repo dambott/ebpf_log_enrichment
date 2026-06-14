@@ -2,7 +2,7 @@ CLUSTER_NAME ?= ebpflogs
 AWS_REGION ?= us-west-2
 CORALOGIX_PRIVATE_KEY ?=
 
-.PHONY: eks-recreate eks-up deploy-eks test clean-eks
+.PHONY: eks-recreate eks-up deploy-eks test clean-eks select-demos demos-status
 
 eks-recreate:
 	RECREATE=true CLUSTER_NAME=$(CLUSTER_NAME) AWS_REGION=$(AWS_REGION) ./scripts/setup-eks.sh
@@ -18,6 +18,18 @@ deploy-dotnet:
 
 test:
 	@./scripts/test-traces.sh
+
+test-all:
+	@TEST_ALL=1 ./scripts/test-traces.sh
+
+select-demos:
+	@./select-demos.sh
+
+demos-status:
+	@./select-demos.sh status
+
+demos-apply:
+	@./select-demos.sh apply $(LANGS)
 
 test-go:
 	@APP=logdemo-go ./scripts/test-traces.sh
